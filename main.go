@@ -47,17 +47,17 @@ func main() {
 	wg.Add(1)
 	for true {
 		go doPollQueue(ctx, redisClient, queueName, topK)
-		if *delay > 0 {
-			time.Sleep(time.Duration(*delay) * time.Millisecond)
-		} else {
-			wg.Done()
-			break
-		}
 		select {
 		case _ = <-signalChan:
 			cancel()
 			wg.Done()
 		default:
+			if *delay > 0 {
+				time.Sleep(time.Duration(*delay) * time.Millisecond)
+			} else {
+				wg.Done()
+				break
+			}
 		}
 	}
 	wg.Wait()
