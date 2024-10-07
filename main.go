@@ -43,24 +43,38 @@ func main() {
 		DB:       *redisDB,
 	})
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	for true {
-		go doPollQueue(ctx, redisClient, queueName, topK)
+	go func() {
 		select {
 		case _ = <-signalChan:
 			cancel()
-			wg.Done()
 		default:
-			if *delay > 0 {
-				time.Sleep(time.Duration(*delay) * time.Millisecond)
-			} else {
-				wg.Done()
-				break
-			}
+
+		}
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	for true {
+		doPollQueue(ctx, redisClient, queueName, topK)
+		if *delay > 0 {
+			SleepWithContext(ctx, time.Duration(*delay)*time.Millisecond)
+		} else {
+			wg.Done()
+			break
 		}
 	}
 	wg.Wait()
+}
+
+func SleepWithContext(ctx context.Context, d time.Duration) {
+	timer := time.NewTimer(d)
+	select {
+	case <-ctx.Done():
+		if !timer.Stop() {
+			<-timer.C
+		}
+	case <-timer.C:
+	}
 }
 
 func doPollQueue(ctx context.Context, redisClient *redis.Client, queueName *string, topK *int) {
